@@ -1,116 +1,62 @@
 #include <iostream>
 #include <fstream>
-#include <unordered_map>
+
+//Points for an "actual" rock-paper-scissors game.
+// Input are - opponent move (0,1,2 = Rock,Paper,Scissors)
+//           - your move     (0,1,2 = Rock,Paper,Scissors)
+// Output is score:
+//   - 6 for a win   +  points for shape (0,1,2 for Rock,Paper,Scissors respectively) 
+//   - 3 for a draw  +  points for shape (0,1,2 for Rock,Paper,Scissors respectively) 
+//   - 0 for a loss  +  points for shape (0,1,2 for Rock,Paper,Scissors respectively) 
+int part1_points(int opponent, int you){    
+        
+    //You win if your index is one higher (mod 3) than your opponent:
+    // - opponent has 0 (R), you need 1    (P)
+    // - opponent has 1 (P), you need 2    (S)
+    // - opponent has 2 (S), you need 3->0 (R)
+    bool win  = you == (opponent+1)%3;
+    bool draw = you ==  opponent;
+    bool loss = (!win && !draw);
+
+    //Calculate the points for the shape you played
+    int  move_points = you + 1;
+
+    //Return the accumulative points
+    return (move_points + win*6 + draw*3 + loss*0);
+}
+
+//This is how the input was meant to be interpreted:
+// column 1 is the opponent move (A,B,C), and column 2 weather you should win, draw or lose (X,Y,Z)
+//We can reuse the scoring function from part 1
+int part2_points(int opponent, int win_or_lose){
+    // - to lose, we need one lower (mod 3) than the opponent -->  + 2 mod 3
+    // - to draw, we need the same value as the opponent      -->  + 3 mod 3
+    // - to win , we need 1 higher (mod 3)  than the opponent -->  + 4 mod 3
+    // add 2 to avoid taking modulo of negative number
+    char you = (opponent + win_or_lose + 2) % 3;
+    return part1_points(opponent,you);
+}
 
 /*
     The elves play a Rock - Paper - Scissors contest, but you have inside knowledge.
-
-    This code gets the thing done, but could be made nicer:
-        - The Rock Paper Scissors game could probably be nicely be implemented with a 
-          circular linked list, to determine which moves win / lose
-        - The shape_score map is for convenience, but can also be easily calculated 
-          directly from the input (score = char - 'X')
-    I can't really be bothered though
 */
 int main(){
 
     //Load input file (this file is copied to the build directory)
     std::fstream infs("input.txt");
     
-    // ----------------------- Game definition ---------------------------
-    
-    //Shape map, just for convenience (R,P,S makes clearer what is what)
-    std::unordered_map<char,char> shape_map = {
-       { 'A', 'R' }, //Rock
-       { 'B', 'P' }, //Paper
-       { 'C', 'S' }, //Scissors
-       { 'X', 'R' }, //Rock
-       { 'Y', 'P' }, //Paper
-       { 'Z', 'S' }  //Scissors
-    };
-
-    //Points for each shape
-    std::unordered_map<char,int> shape_score = {
-       { 'R', 1 }, //Rock
-       { 'P', 2 }, //Paper
-       { 'S', 3 }, //Scissors
-    };
-
-    //Winning replies to opponent
-    std::unordered_map<char,char> win {
-        {'R','P'}, // Enemy plays Rock,     you play Paper
-        {'P','S'}, // Enemy plays Paper,    you play Scissors
-        {'S','R'}, // Enemy plays Scissors, you play Rock
-    };
-
-    //Losing replies to opponent
-    //Note that this is the reverse of the previous map
-    std::unordered_map<char,char> loss {
-        {'R','S'}, // Enemy plays Rock,     you play Scissors
-        {'P','R'}, // Enemy plays Paper,    you play Rock
-        {'S','P'}, // Enemy plays Scissors, you play Paper
-    };
-
-
-    // -----------------  Part 1  -------------------------------------
-
     std::string line;
-    int score = 0;
+    int part1_score = 0;
+    int part2_score = 0;
+    
     while(std::getline(infs,line)){
-        //Load opponent move and (supposedly) your counter move
-        char enemy_move   = shape_map[line[0]];
-        char counter_move = shape_map[line[2]];
-
-        //The shape you play is part of the total score
-        score += shape_score[counter_move];
-
-        //Determine if you win, lose, or draw the game and add points
-        if(enemy_move == counter_move){
-            //Draw: same shape
-            score += 3;
-        }else if(counter_move == win[enemy_move]){
-            //Win
-            score += 6;
-        }
+        //Calculate score with the strategy from part 1
+        part1_score += part1_points(line[0]-'A',line[2]-'X');
+        //Calculate score with the strategy from part 2
+        part2_score += part2_points(line[0]-'A',line[2]-'X');
     }
-    std::cout << "total score when following wrong strategy: " << score << std::endl;
-
-    // -----------------  Part 2  -------------------------------------
-
-    //Reset filestream
-    infs.clear();
-    infs.seekg(0);
-    score = 0;
-    while(std::getline(infs,line)){
-        //Load opponent move and whether you should win/draw/lose
-        char enemy_move   = shape_map[line[0]];
-        char win_lose     = line[2];
-        
-        //Determine the appropriate counter move
-        char counter_move;
-        switch(win_lose){
-            case 'X':
-                //You need to lose
-                counter_move = loss[enemy_move];
-                break;
-            case 'Y':
-                //You need to draw
-                score += 3;
-                counter_move = enemy_move;
-                break;
-            case 'Z':
-                //You need to win
-                score += 6;
-                counter_move = win[enemy_move];
-                break;
-            default:
-                break;
-        }
-
-        //Add the score of your shape
-        score += shape_score[counter_move];
-    }
-    std::cout << "total score when following correct strategy: " << score << std::endl;
+    std::cout << "total score when following strategy of part 1: " << part1_score << std::endl;
+    std::cout << "total score when following strategy of part 2: " << part2_score << std::endl;
 
     return 0;
 }
