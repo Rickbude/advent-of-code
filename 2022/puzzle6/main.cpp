@@ -34,12 +34,11 @@ int main(int argc, char *argv[]){
     std::vector<char> buffer;
     if(argc == 2){
         buffer.resize(std::stoi(argv[1]));
+        std::fill(buffer.begin(), buffer.end(),'0');
     }else{
         throw std::runtime_error("Provide a buffer size. Call this script as:  ./puzzle6 <buffer_size> ");
     }
     
-    std::fill(buffer.begin(), buffer.end(),'0');
-
     int counter = 1;
     for(char c:line){
         //Shift all characters in the buffer one to the left
