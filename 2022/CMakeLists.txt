@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.17)
 project(aoc_2022)
 
-
-add_subdirectory(puzzle1)
-add_subdirectory(puzzle2)
-add_subdirectory(puzzle3)
-add_subdirectory(puzzle4)
-add_subdirectory(puzzle5)
-add_subdirectory(puzzle6)
+#Add all subdirectories that satisfy the pattern puzzle\d+
+file(GLOB sources_list LIST_DIRECTORIES true puzzle*)
+foreach(dir ${sources_list})
+    IF(IS_DIRECTORY ${dir})
+        add_subdirectory(${dir})
+    ELSE()
+        CONTINUE()
+    ENDIF()
+endforeach()
