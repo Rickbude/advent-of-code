@@ -81,16 +81,16 @@ int main(int argc, char *argv[]){
             node& head = *nodes.begin();
             switch(direction){
                 case 'U':
-                    head.x++;
+                    head.y++;
                     break;
                 case 'D':
-                    head.x--;
-                    break;
-                case 'L':
                     head.y--;
                     break;
+                case 'L':
+                    head.x--;
+                    break;
                 case 'R':
-                    head.y++;
+                    head.x++;
                     break;
                 default:
                     throw std::runtime_error("Illegal move direction!!");
