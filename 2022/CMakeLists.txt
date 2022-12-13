@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.17)
 project(aoc_2022)
 
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+
 #Add all subdirectories that satisfy the pattern puzzle\d+
 file(GLOB sources_list LIST_DIRECTORIES true puzzle*)
 foreach(dir ${sources_list})
