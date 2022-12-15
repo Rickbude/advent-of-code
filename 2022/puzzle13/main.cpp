@@ -1,23 +1,29 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <deque>
 #include <sstream>
 #include <vector>
 #include <algorithm>
-#include <set>
-#include <list>
-#include "aoc_utility.hpp"
-#include <cmath>
-#include <memory>
+#include <variant>
 
-struct Node{
-    //Would be nice to try out std::vector<std::variant<Node,int>>
-    std::vector<Node> nodes;
-    int number = -1;
+struct List{
+    //Each list element is either a number, or a list
+    std::vector<std::variant<int,List>> nodes;
 };
+using list_or_num = std::variant<int,List>;
 
-void parse(Node* node, std::string in){
+//Variant is of integer type?
+bool is_number(const list_or_num& node){
+    return std::holds_alternative<int>(node);
+}
+
+//Variant is a list?
+bool is_list(const list_or_num& node){
+    return std::holds_alternative<List>(node);
+}
+
+//Recursively parse the input string
+void parse(List* node, std::string in){
     int depth = 0;
     int position = 1;
 
@@ -50,19 +56,22 @@ void parse(Node* node, std::string in){
         
         std::string part3 = in.substr(endpos+1);                      
         if(part1.size() > 0){
+            //If string is nonzero, recurse 
             parse(node,part1.substr(0,part1.size()-1));
         }
 
         //part 2: the closed set
-        std::string part2 = in.substr(startpos+1,endpos-startpos-1);  
-        Node new_node;
-        node->nodes.push_back(new_node);
-        if(part2.size() > 0){            
-            parse(&node->nodes.back(),part2);           
+        std::string part2 = in.substr(startpos+1,endpos-startpos-1);     
+        List new_node;            
+        if(part2.size() > 0){
+            //If string is nonzero, recurse 
+            parse(&new_node,part2);                       
         }
+        node->nodes.push_back(new_node);
 
         //part 3: the part after the closed set
         if(part3.size() > 0){
+            //If string is nonzero, recurse 
             parse(node,part3.substr(1));
         }
     }else{
@@ -71,114 +80,110 @@ void parse(Node* node, std::string in){
         std::string item;
         while(std::getline(starting_items, item, ','))
         {
-            Node new_node;
-            new_node.number = std::stoi(item);
-            node->nodes.push_back(new_node);
+            node->nodes.push_back(std::stoi(item));
         }
     }    
 }
 
 //Print the node, primarily to see if it was properly parsed
-std::string node_to_string(const Node& node){
+//(Only used if debug prints are uncommented)
+std::string node_to_string(const list_or_num& node){
     std::string string;
-    if(node.nodes.size()>0){
+    if(is_list(node)){
+        //list element is a list -> recurse
         string += "[";
-        for(int i = 0; i< node.nodes.size(); i++){
-            string += node_to_string(node.nodes[i]);
+        for(const auto& item : std::get<List>(node).nodes){
+            string += node_to_string(item);
         }
-        string += "]";
+        string += "]";        
     }else{
-        if(node.number >= 0){
-            string += " " + std::to_string(node.number) + " ";
-        }else{
-            string += "[]";
-        }        
+        int number = std::get<int>(node);
+        string += " " + std::to_string(number);
     }
     return string;
 }
 
 //When comparing a list to an item, the number must be wrapped in a node,
 //and the comparison must be tried again
-Node wrap_number(int number){
-    Node parent  ;
-    Node daughter;
-    daughter.number = number;
-    parent.nodes.push_back(daughter);
-    return parent;
+List wrap_number(int number){
+    List new_node;
+    new_node.nodes.push_back(number);
+    return new_node;
 }
 
 //Return -1 if wrong order, 0 if unknown (so proceed), 1 if right order
-int sorted(const Node& node_a, const Node& node_b){    
+int sorted(const list_or_num& node_a, const list_or_num& node_b){    
     //std::cout << "compare " << node_to_string(node_a) << " to " <<  node_to_string(node_b) << std::endl;
-    if(node_a.number != -1 && node_b.number != -1){
+    if(is_number(node_a) && is_number(node_b)){
+        int number_a = std::get<int>(node_a);
+        int number_b = std::get<int>(node_b);
         //Both nodes are a number --> see if the left number is smaller
-        if(node_a.number < node_b.number){
+        if(number_a < number_b){
             //std::cout << "Left side is smaller, so inputs are in the right order" << std::endl;
             return 1;
         }
-        if(node_b.number < node_a.number){
+        if(number_b < number_a){
             //std::cout << "Right side is smaller, so inputs are not in the right order" << std::endl;
             return -1;
         }
         return 0;
-    }else if(node_a.number == -1 && node_b.number == -1){
+    }else if(is_list(node_a) && is_list(node_b)){
+        const List& list_a = std::get<List>(node_a);
+        const List& list_b = std::get<List>(node_b);
         //Both values are a list
-        if(node_a.nodes.size() == 0 && node_b.nodes.size() == 0){
+        if(list_a.nodes.size() == 0 && list_b.nodes.size() == 0){
             return 0;
         }
 
-        for(int i = 0; i<node_a.nodes.size(); i++){
+        for(int i = 0; i<list_a.nodes.size(); i++){
             //right list has run out -> not the right order
-            if(i+1 > node_b.nodes.size()){
+            if(i+1 > list_b.nodes.size()){
                 //std::cout << "Right side ran out of items, so inputs are not in the right order" << std::endl;
                 return -1;
             }
-            int is_sorted = sorted(node_a.nodes[i],node_b.nodes[i]);
+            int is_sorted = sorted(list_a.nodes[i],list_b.nodes[i]);
             if(is_sorted != 0){
                 return is_sorted;
             }
         }
         //Same sized lists -> continue
-        if(node_a.nodes.size() == node_b.nodes.size()){
+        if(list_a.nodes.size() == list_b.nodes.size()){
             return 0;
         }else{
             //std::cout << "Left side ran out of items, so inputs are in the right order" << std::endl;
             return 1;
         }
-    }else if(node_a.number == -1){
+    }else if(is_number(node_b)){
         //Comparing integer to list -> wrap number in a node and retry
         //std::cout << "Changing int to list and retry" << std::endl;
-        Node new_node = wrap_number(node_b.number);
+        List new_node = wrap_number(std::get<int>(node_b));
         return sorted(node_a,new_node);
     }else{
         //Comparing integer to list -> wrap number in a node and retry
         //std::cout << "Changing int to list and retry" << std::endl;
-        Node new_node = wrap_number(node_a.number);
+        List new_node = wrap_number(std::get<int>(node_a));
         return sorted(new_node,node_b);
     }
-    std::cout << "wrong comparison????" << std::endl;
 }
 
 //Small function that makes sorting possible
-bool is_sorted(const Node& node_a, const Node& node_b){
+bool is_sorted(const List& node_a, const List& node_b){
     return sorted(node_a,node_b) == 1;
 }
 
-//Distress Signal
-//This script needs as input whether it needs to run part1, or part 2.
-// Run as: ./puzzle13 1       or      ./puzzle13 2
-//For part 1 and 2 respectively
-int main(int argc, char *argv[]){
+bool is_equal(const List& node_a, const List& node_b){
+    return sorted(node_a,node_b) == 0;
+}
 
-    //Parse the program arguments, extract the part number
-    int part = aoc::get_part_number(argc,argv);
+//Distress Signal
+int main(){
     
     //Load input file (this file is copied to the build directory) and obtain
     //the number of rows and columns of the map
     std::fstream infs("input.txt");    
     
     std::string line;
-    std::vector<Node> nodes;
+    std::vector<List> nodes;
 
     //Read in the data
     while(std::getline(infs,line)){
@@ -187,7 +192,7 @@ int main(int argc, char *argv[]){
             continue;
         }
 
-        Node new_node;
+        List new_node;
         parse(&new_node,line.substr(1,line.size()-2));        
         nodes.push_back(new_node);       
     }
@@ -202,19 +207,20 @@ int main(int argc, char *argv[]){
     std::cout << "part 1 solution: " << unsorted_indices_sum << std::endl;
 
     //For part 2, insert 2 extra nodes: the "markers"
-    Node startnode = wrap_number(2);
-    Node endnode   = wrap_number(6);
+    List startnode = wrap_number(2);
+    List endnode   = wrap_number(6);
     nodes.push_back(startnode);
     nodes.push_back(endnode);
     std::sort(nodes.begin(), nodes.end(), is_sorted);
 
+    //Search for the start and end markers
     int startnode_index = -1;
     int endnode_index   = -1;
     for(int i = 0; i<nodes.size(); i++){
-        if(sorted(nodes[i],startnode) == 0){
+        if(is_equal(nodes[i],startnode)){
             //start marker located
             startnode_index = i+1;
-        }else if(sorted(nodes[i],endnode) == 0){
+        }else if(is_equal(nodes[i],endnode)){
             //end marker located
             endnode_index   = i+1;
         }
