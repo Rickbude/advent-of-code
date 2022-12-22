@@ -131,10 +131,8 @@ int main(){
     shapes[4].cols   = 2;
     shapes[4].blocks = {1,1,1,1};
 
-    //Map that holds the "board". Grows dynamically as needed by adding empty rows
+    //Map that holds the "board".
     Map map;
-    std::array<bool,N_cols> empty_row;
-    empty_row.fill(false);
 
     //For part 2: keep track of unique board positions (key = "hash" of game state and board state)
     std::unordered_map<std::string,int> keys; 
