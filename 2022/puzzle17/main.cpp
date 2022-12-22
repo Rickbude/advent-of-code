@@ -14,7 +14,7 @@
 const int N_cols   = 7;
 using pos_type = std::pair<long long,long long>;
 struct Map{
-    std::vector<std::array<bool,N_cols>> blocks;
+    std::vector<std::bitset<N_cols>> blocks;
 };
 
 //General structure that holds a shape
@@ -46,7 +46,7 @@ bool detect_collision(const Map& map, const Shape& shape, const pos_type& pos){
         } 
         int row = pos.second + (i / shape.cols);
         int col = pos.first  + (i % shape.cols);                 
-        if(map.blocks[row][col]){
+        if(map.blocks[row][N_cols-col-1]){
             return true;
         }
     }
@@ -61,7 +61,7 @@ void write_shape(Map& map, const Shape& shape, const pos_type& pos){
         }
         int row = pos.second + (i / shape.cols);
         int col = pos.first  + (i % shape.cols);        
-        map.blocks[row][col] = true; 
+        map.blocks[row][N_cols-col-1] = true; 
     }
 }
 
@@ -72,7 +72,7 @@ void draw_map(const Map& map){
     for(size_t row = map.blocks.size(); row!=0; --row){
         std::cout << "|";
         for(int col = 0; col<N_cols; col++){
-            if(map.blocks[row-1][col]){
+            if(map.blocks[row-1][N_cols-col-1]){
                 std::cout << "#";
             }else{
                 std::cout << " ";
@@ -86,10 +86,8 @@ void draw_map(const Map& map){
 //Find the current highest occupied block in the matrix
 int highest_block(const Map& map){
     for(size_t row = map.blocks.size(); row!=0; --row){
-        for(int col = 0; col<N_cols; col++){
-            if(map.blocks[row-1][col]){
-                return row-1;
-            }
+        if(map.blocks[row-1] != 0){
+            return row-1;
         }
     }
     return 0;
@@ -156,7 +154,7 @@ int main(){
 
         //Make sure the map is large enough to receive our piece
         while(map.blocks.size() < current_height + 10){
-            map.blocks.push_back(empty_row);
+            map.blocks.push_back(0);
         }
         
         //Block index cycles through the shapes in a fixed order
@@ -199,8 +197,7 @@ int main(){
                 //Accept move
                 //std::cout << "Rock falls one unit(" << pos.first << ","<< pos.second << ")" << std::endl;               
                 prev_pos = pos;
-            }    
-                  
+            }                    
         }
 
         //Store current stack height
@@ -221,9 +218,7 @@ int main(){
             //"Hash" the game state (probably something better could be done, but this works)
             key = std::to_string(block_index) + "_" + std::to_string(direction_counter) + "_";        
             for(int r = 0; r<search_repeat; r++){
-                for(int c = 0; c<7; c++){
-                    key += std::to_string(map.blocks[highest_block(map)-r][c]);
-                }                
+                key += map.blocks[highest_block(map)-r].to_string();                     
             }   
             //Check if this game state is unique, if not, add it to the hash map
             if(keys.find(key) == keys.end()){
