@@ -164,25 +164,26 @@ int main(int argc, char *argv[]){
         //Start out with exactly one ore bot
         Eigen::Vector4i items = {0,0,0,0};
         Eigen::Vector4i bots  = {1,0,0,0};
-        geodes[i] = geodes_collected(blueprint,max_minutes,items,bots);
-        std::cout << "Maximum blueprints collected in " << max_minutes 
-                  << " minutes by blueprint " << blueprint.id << " : " << geodes[i] << std::endl;
+        geodes[i] = geodes_collected(blueprint,max_minutes,items,bots);        
     }
 
     if(part == 1){
         //For part 1, calculate the sum of "quality factors" of all blueprints
         int quality_sum = 0;
         for(int i = 0; i<n_blueprints; i++){
-            quality_sum += blueprints[i].id * geodes[i];
+            int quality_score = blueprints[i].id * geodes[i];
+            std::cout << "Blueprint " << blueprints[i].id << " has quality score : " << quality_score << std::endl;
+            quality_sum += quality_score;
         }
-        std::cout << "sum of blueprint qualities: " << quality_sum << std::endl;
+        std::cout << "Sum of blueprint qualities: " << quality_sum << std::endl;
     }else{
         //For part 2, calculate the product of geodes collected by only the first 3 blueprints
         int geode_product = 1;
         for(int i = 0; i<n_blueprints; i++){
             geode_product *= geodes[i];
+            std::cout << "Maximum geodes collected with blueprint " << blueprints[i].id << " : " << geodes[i] << std::endl;
         }
-        std::cout << "Produce of collected geodes: " << geode_product << std::endl;
+        std::cout << "Product of collected geodes: " << geode_product << std::endl;
     }
     
     return 0;
