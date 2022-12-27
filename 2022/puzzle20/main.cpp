@@ -3,19 +3,20 @@
 #include <fstream>
 #include <list>
 #include <cassert>
+#include <vector>
 #include <algorithm>
 #include "aoc_utility.hpp"
 
-void advance_circular(std::list<int>::iterator &it, std::list<int>& list, int shift){
-    if(shift>0){
-        for(int i = 0; i<=shift; i++){
+//Advance an iterator through a list in a circular fashion
+void advance_circular(std::list<int>::iterator &it, std::list<int>& list, long long shift){
+    int mod_shift = std::abs(shift) % list.size();    
+    for(int i = 0; i<mod_shift; i++){
+        if(shift>0){
             std::advance(it,1);
             if(it == list.end()){
                 it = list.begin();
-            }
-        }
-    }else{
-        for(int i = 0; i>shift; i--){
+            }            
+        }else{
             std::advance(it,-1);
             if(it == list.begin()){
                 it = list.end();
@@ -39,36 +40,58 @@ int main(int argc, char *argv[]){
     
     std::string line;
 
-    std::list<int> numbers;
+    //Linked list of the initial 
+    std::vector<long long> initial_numbers;
+    std::list<int> indices;
+
     //Read in the data
+    int index = 0;
+    long long decryption_key = (part == 1) ? 1 : 811589153;
     while(std::getline(infs,line)){
-        numbers.push_back(std::stoi(line));
+        initial_numbers.push_back(std::stoi(line)*decryption_key);
+        indices.push_back(index);
+        index++;
     }
 
-    std::list<int> initial_numbers = numbers;
-    
-    //Now do the circular shifts
-    for(int number : initial_numbers){
-        std::list<int>::iterator it = std::find(numbers.begin(), numbers.end(),number);
-        std::list<int>::iterator it2 = it;
-        advance_circular(it2,numbers,number%numbers.size());
-        numbers.splice(it2,numbers,it);
+    //Now do the mixing
+    int rounds = (part == 1) ? 1 : 10;
+    for(int round = 0; round<rounds; round++){
+        for(int index = 0; index<indices.size(); index++){
+            //Find this index in the linked list
+            std::list<int>::iterator it = std::find(indices.begin(), indices.end(),index);
+
+            //Make a copy of the iterator, and advance it N steps
+            std::list<int>::iterator it2 = it;            
+            advance_circular(it2,indices,1);
+            indices.erase(it);
+        
+            //Find the new position of this index
+            long long number = initial_numbers[index];
+            advance_circular(it2,indices,number);
+
+            //Insert the element in the new location
+            indices.insert(it2,index);        
+        }
     }
 
-    std::list<int>::iterator it = std::find(numbers.begin(), numbers.end(), 0);
+    //Find the original index of number 0
+    auto it0 = std::find(initial_numbers.begin(), initial_numbers.end(), 0);
+    int  index_zero = std::distance(initial_numbers.begin(),it0);
+   
+    std::cout << "index of number 0: " << index_zero << std::endl;
+
+    std::list<int>::iterator it = std::find(indices.begin(),indices.end(),index_zero);
     std::list<int>::iterator it1000 = it;
     std::list<int>::iterator it2000 = it;
     std::list<int>::iterator it3000 = it;
-    advance_circular(it1000,numbers,1000-1);
-    advance_circular(it2000,numbers,2000-1);
-    advance_circular(it3000,numbers,3000-1);
+    advance_circular(it1000,indices,1000);
+    advance_circular(it2000,indices,2000);
+    advance_circular(it3000,indices,3000);
 
-    std::cout << "1000th number after 0: " << *it1000 << std::endl;
-    std::cout << "2000th number after 0: " << *it2000 << std::endl;
-    std::cout << "3000th number after 0: " << *it3000 << std::endl;
-    std::cout << "Sum: " << (*it1000) + (*it2000) + (*it3000) <<std::endl;
-
-    //Too high: 11645
+    std::cout << "1000th number after 0: " << initial_numbers[*it1000] << std::endl;
+    std::cout << "2000th number after 0: " << initial_numbers[*it2000] << std::endl;
+    std::cout << "3000th number after 0: " << initial_numbers[*it3000] << std::endl;
+    std::cout << "Sum: " << initial_numbers[*it1000] + initial_numbers[*it2000] + initial_numbers[*it3000] <<std::endl;
 
     return 0;
 }
