@@ -12,10 +12,23 @@
 //existing element. (Keep in mind that list.end() points to a non-existing
 //past-the-end-element.)
 void advance_circular(std::list<int>::iterator &it, std::list<int>& list, long long shift){
+    //Nothing needs to be done if the shift is 0
+    if(shift == 0){
+        return;
+    }
+
     //Take the modulo to avoid doing unnecessary work when doing large shifts
     int mod_shift = std::abs(shift) % list.size();
+    
+    //Check if moving the other way is quicker
+    int direction = shift > 0 ? 1 : -1;
+    if(mod_shift > list.size() / 2){
+        direction *= -1;        
+        mod_shift = list.size() - mod_shift;
+    }
+
     for(int i = 0; i<mod_shift; i++){
-        if(shift>0){
+        if(direction>0){
             //For forward shifts, first advance the iterator, and then loop
             //around once the iterator reaches list.end(), to avoid pointing at
             //nothing.
@@ -69,11 +82,6 @@ int main(int argc, char *argv[]){
         for(int index = 0; index<indices.size(); index++){
             //Obtain the amount with which the element needs to be shifted
             long long number = initial_numbers[index];
-
-            //Nothing needs to be done if the shift is 0
-            if(number == 0){
-                continue;
-            }
 
             //Find this index in the linked list
             std::list<int>::iterator it = std::find(indices.begin(), indices.end(),index);
