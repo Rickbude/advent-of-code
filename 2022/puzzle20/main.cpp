@@ -7,20 +7,30 @@
 #include <algorithm>
 #include "aoc_utility.hpp"
 
-//Advance an iterator through a list in a circular fashion
+//Advance an iterator in a circular fashion over a list (loops around when the
+//pointer reaches list.begin() or list.end()). The iterator always points to an
+//existing element. (Keep in mind that list.end() points to a non-existing
+//past-the-end-element.)
 void advance_circular(std::list<int>::iterator &it, std::list<int>& list, long long shift){
-    int mod_shift = std::abs(shift) % list.size();    
+    //Take the modulo to avoid doing unnecessary work when doing large shifts
+    int mod_shift = std::abs(shift) % list.size();
     for(int i = 0; i<mod_shift; i++){
         if(shift>0){
+            //For forward shifts, first advance the iterator, and then loop
+            //around once the iterator reaches list.end(), to avoid pointing at
+            //nothing.
             std::advance(it,1);
             if(it == list.end()){
                 it = list.begin();
             }            
         }else{
-            std::advance(it,-1);
+            //For backward shifts, first loop around when the iterator points to
+            //list.begin(), and then decrement the iterator, to avoid pointing
+            //at nothing.
             if(it == list.begin()){
                 it = list.end();
             }
+            std::advance(it,-1);            
         }
     }
 }
@@ -57,41 +67,48 @@ int main(int argc, char *argv[]){
     int rounds = (part == 1) ? 1 : 10;
     for(int round = 0; round<rounds; round++){
         for(int index = 0; index<indices.size(); index++){
+            //Obtain the amount with which the element needs to be shifted
+            long long number = initial_numbers[index];
+
+            //Nothing needs to be done if the shift is 0
+            if(number == 0){
+                continue;
+            }
+
             //Find this index in the linked list
             std::list<int>::iterator it = std::find(indices.begin(), indices.end(),index);
 
-            //Make a copy of the iterator, and advance it N steps
+            //Make a copy of the iterator, and advance it one steps, such that
+            //it points to the next element (in a circular fashion).
             std::list<int>::iterator it2 = it;            
             advance_circular(it2,indices,1);
+
+            //Now erase the original element
             indices.erase(it);
-        
-            //Find the new position of this index
-            long long number = initial_numbers[index];
+
+            //Find the new position of the element
             advance_circular(it2,indices,number);
 
             //Insert the element in the new location
-            indices.insert(it2,index);        
+            indices.insert(it2,index); 
         }
     }
 
-    //Find the original index of number 0
+    //Find the original index of number 0, and an iterator pointing to it
     auto it0 = std::find(initial_numbers.begin(), initial_numbers.end(), 0);
     int  index_zero = std::distance(initial_numbers.begin(),it0);
-   
-    std::cout << "index of number 0: " << index_zero << std::endl;
-
     std::list<int>::iterator it = std::find(indices.begin(),indices.end(),index_zero);
-    std::list<int>::iterator it1000 = it;
-    std::list<int>::iterator it2000 = it;
-    std::list<int>::iterator it3000 = it;
-    advance_circular(it1000,indices,1000);
-    advance_circular(it2000,indices,2000);
-    advance_circular(it3000,indices,3000);
 
-    std::cout << "1000th number after 0: " << initial_numbers[*it1000] << std::endl;
-    std::cout << "2000th number after 0: " << initial_numbers[*it2000] << std::endl;
-    std::cout << "3000th number after 0: " << initial_numbers[*it3000] << std::endl;
-    std::cout << "Sum: " << initial_numbers[*it1000] + initial_numbers[*it2000] + initial_numbers[*it3000] <<std::endl;
+    //Calculate the answer (sum of the 1000th, 2000th and 3000th value)
+    long long coordinate_product = 0;
+    for(int i = 1000; i<=3000; i+=1000){
+        std::list<int>::iterator it2 = it;
+        advance_circular(it2,indices,i);
+        long long number = initial_numbers[*it2];
+        std::cout << i << "th number after 0: " << number << std::endl;
+        coordinate_product += number;
+    }
+    std::cout << "Sum of values (answer): " << coordinate_product <<std::endl;
 
     return 0;
 }
