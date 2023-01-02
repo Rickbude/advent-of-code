@@ -66,6 +66,11 @@ int main(int argc, char *argv[]){
     //Linked list of the initial 
     std::vector<long long> initial_numbers;
     std::list<int> indices;
+    std::vector<std::list<int>::iterator> iterators;
+
+    //One iterators for every element in the list.
+    //This gets (manually) updated every time that an element is inserted or removed.
+    std::list<int>::iterator iterator;
 
     //Read in the data
     int index = 0;
@@ -73,39 +78,51 @@ int main(int argc, char *argv[]){
     while(std::getline(infs,line)){
         initial_numbers.push_back(std::stoi(line)*decryption_key);
         indices.push_back(index);
+        //Store an iterator pointing to this list element
+        if(index == 0){
+            iterator = indices.begin();
+        }else{
+            iterator++;
+        }
+        iterators.push_back(iterator);
         index++;
     }
 
     //Now do the mixing
     int rounds = (part == 1) ? 1 : 10;
+    std::list<int> tmp;
     for(int round = 0; round<rounds; round++){
         for(int index = 0; index<indices.size(); index++){
             //Obtain the amount with which the element needs to be shifted
             long long number = initial_numbers[index];
 
-            //Find this index in the linked list
-            std::list<int>::iterator it = std::find(indices.begin(), indices.end(),index);
+            //Get an iterator pointing to the element to be moved
+            std::list<int>::iterator it = iterators[index];
 
             //Make a copy of the iterator, and advance it one steps, such that
             //it points to the next element (in a circular fashion).
             std::list<int>::iterator it2 = it;            
             advance_circular(it2,indices,1);
-
-            //Now erase the original element
+            
+            //Now erase the original element.
             indices.erase(it);
-
+            
             //Find the new position of the element
             advance_circular(it2,indices,number);
-
+            
             //Insert the element in the new location
             indices.insert(it2,index); 
+
+            //Update the vector of iterators.
+            advance_circular(it2,indices,-1);
+            iterators[index] = it2;
         }
     }
 
     //Find the original index of number 0, and an iterator pointing to it
     auto it0 = std::find(initial_numbers.begin(), initial_numbers.end(), 0);
     int  index_zero = std::distance(initial_numbers.begin(),it0);
-    std::list<int>::iterator it = std::find(indices.begin(),indices.end(),index_zero);
+    std::list<int>::iterator it = iterators[index_zero];
 
     //Calculate the answer (sum of the 1000th, 2000th and 3000th value)
     long long coordinate_product = 0;
