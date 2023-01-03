@@ -22,4 +22,13 @@ namespace aoc{
             throw std::runtime_error("This puzzle requires a part number (1 or 2) as input. Call this script as:  ./puzzle6 <part_number> ");
         }
     }
+
+    //Return a mod b, but in contrast to the built-in modulo (%), the result is
+    //guaranteed to be between 0 and b. A practical example:
+    // -7 % 3    = -1
+    // mod(-7,3) =  2
+    template<typename T>
+    T mod(T a, T b){
+        return (b + (a % b)) % b;
+    }
 }
