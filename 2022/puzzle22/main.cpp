@@ -22,9 +22,10 @@ struct Node{
     int x=0;
     int y=0;
     int z=0;
-    std::array<int,4> neighbours = {-1,-1,-1,-1};
+    std::array<Node*,4> neighbours;
     char tile;
     int face;
+    int id;
     std::array<int,4> new_facing = {0,0,0,0};
 };
 
@@ -63,14 +64,11 @@ Eigen::Matrix3d Rz(double theta_deg){
 
 //Try to take a step in a given direction (facing). Return false if the step
 //would hit a wall ('#'), true otherwise.
-bool try_move(std::unordered_map<int,Node>& map, int& row, int& col, Facing& facing){
-    int id = row_col_to_id(row,col);
-    int neighbour_id = map.at(id).neighbours[facing];
-    const Node& neighbour = map.at(map.at(id).neighbours[facing]);
-    if(neighbour.tile != '#'){
-        row     = neighbour.row;
-        col     = neighbour.col;
-        facing  = Facing(map.at(id).new_facing[facing]);
+bool try_move(Node*& node, Facing& facing){
+    Node* neighbour = node->neighbours[facing];
+    if(neighbour->tile != '#'){                
+        facing  = Facing(node->new_facing[facing]);        
+        node = neighbour;
         return true;
     }else{
         return false;
@@ -78,13 +76,13 @@ bool try_move(std::unordered_map<int,Node>& map, int& row, int& col, Facing& fac
 }
 
 //Print the map (for debugging purposes)
-void print_map(std::unordered_map<int,Node>& map, int Nrows, int Ncols){
+void print_map(std::unordered_map<int,Node*>& map, int Nrows, int Ncols){
     for(int row = 0; row<Nrows; row++){
         std::string line;
         for(int col = 0; col<Ncols; col++){
             int id = row_col_to_id(row,col);
             if(map.find(id) != map.end()){
-                line += map.at(id).tile;
+                line += map.at(id)->tile;
             }else{
                 line += ' ';
             }
@@ -108,11 +106,10 @@ int main(int argc, char *argv[]){
     std::string line;
 
     //First part of the input file contains the map
-    std::unordered_map<int,Node> map;
+    std::vector<Node> nodes;
     int row = 0;
     Node node;
-    const int start_row =  0; //Starting row
-    int start_col = -1; //Starting column
+    int counter = 0;
     while(std::getline(infs,line)){
         //Empty line marks the end of the map and start of instructions
         if(line == ""){
@@ -124,23 +121,24 @@ int main(int argc, char *argv[]){
             if(c == ' '){
                 continue;
             }
-            //Establish starting column
-            if(start_col == -1){
-                start_col = col;
-            }
+
+            //Store into node list
             node.row  = row;
             node.col  = col;
             node.tile = c;
-            int id    = row_col_to_id(row,col);   
-            map[id]   = node; 
+            node.id   = row_col_to_id(row,col);
+            nodes.push_back(node);   
+            counter++;         
         }
         row++;
     }
-
+    
+    Node* start_node = &nodes[0];
+    
     //The nature of the problem dictates that a total of exactly
     // [6 x face_size x face_size] map entries are present.
-    const int face_size = std::sqrt(map.size()/6);
-    assert(map.size() == 6*face_size*face_size);
+    const int face_size = std::sqrt(nodes.size()/6);
+    assert(nodes.size() == 6*face_size*face_size);
     std::cout << "face size is " << face_size << " x " << face_size << std::endl;
 
     //Part 2 of the input file contains the instructions   
@@ -170,16 +168,25 @@ int main(int argc, char *argv[]){
     direction = {0,std::stoi(digit)};
     instructions.push_back(direction);
 
+    //Convenience map for translating (row,col) -> Node*
+    std::unordered_map<int,Node*> map;
+    map.reserve(nodes.size());
+    for(int i = 0; i<nodes.size(); i++){
+        Node* node = &nodes[i];
+        map[node->id] = node;
+    }
+
     //Make a "reduced map" that contains only the position of faces   
     //Also establish the starting face, and the matrix dimensions
     std::unordered_map<int,Face> cube_faces; 
+    
     Face start_face; 
     Face face;
     int Nrows = 0;
     int Ncols = 0;
-    for(auto& node : map){
-        int row = node.second.row;
-        int col = node.second.col;
+    for(Node& node : nodes){
+        int row = node.row;
+        int col = node.col;
         Nrows   = std::max(Nrows,row+1);  
         Ncols   = std::max(Ncols,col+1); 
         int face_row = row/face_size;
@@ -197,12 +204,12 @@ int main(int argc, char *argv[]){
             face.id       = faceid;
             cube_faces[faceid] = face;
             //Check if this face contains the starting point
-            if( face_row == start_row / face_size && 
-                face_col == start_col / face_size){
+            if( face_row == start_node->row / face_size && 
+                face_col == start_node->col / face_size){
                 start_face   = face;
             }
         }        
-        node.second.face = row_col_to_id(face_row,face_col,10);
+        node.face = row_col_to_id(face_row,face_col,10);
     }   
 
     Eigen::Vector3i x{1,0,0};
@@ -360,14 +367,14 @@ int main(int argc, char *argv[]){
     assert(cube_faces.size() == 6);
 
     //Determine for each node its neighbours. This process is the main difference between part 1 and 2
-    for(auto& node : map){
-        int row = node.second.row;
-        int col = node.second.col;        
-        int curr_face_id = node.second.face;
+    for(Node& node : nodes){
+        int row = node.row;
+        int col = node.col;        
+        int curr_face_id = node.face;
         const Face& curr_face = cube_faces.at(curr_face_id);
         int facing_change   = 0;
         for(int facing = right; facing<=up; facing = Facing(facing+1)){
-            node.second.new_facing[facing] = facing;
+            node.new_facing[facing] = facing;
             
             int d_row = (facing%2 == 1) ? 2 - facing : 0;
             int d_col = (facing%2 == 0) ? 1 - facing : 0;     
@@ -382,7 +389,7 @@ int main(int argc, char *argv[]){
                 //We got into a new face, determine the new face and facing.   
                 int new_face_id       = curr_face.neighbours[facing];
                 const Face& new_face  = cube_faces.at(new_face_id);
-                node.second.new_facing[facing] = curr_face.new_facing[facing];
+                node.new_facing[facing] = curr_face.new_facing[facing];
 
                 //Check in the "arriving face" where we came from. This is 180
                 //degrees rotated compared to the direction we "need". For part
@@ -408,40 +415,34 @@ int main(int argc, char *argv[]){
                 new_row = std::round(new_face.center_y + pos[1] - d_face_row*face_size);
                 new_col = std::round(new_face.center_x + pos[0] - d_face_col*face_size);                  
             }
-            node.second.neighbours[facing]    = row_col_to_id(new_row,new_col);
+            Node* neighbour = map.at(row_col_to_id(new_row,new_col));
+            assert(neighbour != nullptr);
+            node.neighbours[facing] = neighbour;
         }          
     }
     
     std::cout << "done setting up connectivity" << std::endl;
-    
 
     //Step through the instructions one at a time
     Facing facing = right;
-    row = start_row;
-    int col = start_col;
+    
+    Node* curr_node = start_node;
     for(const auto& instruction : instructions){
-
-        int steps     = instruction.second;
-        int new_row   = row;
-        int new_col   = col;       
-        
+        int steps     = instruction.second;        
         //First make N steps
         for(int step = 0; step<steps; step++){
             //Mark our steps in the map  
             const std::string signs = ">v<^";
-            map.at(row_col_to_id(row,col)).tile = signs[facing];
-            bool did_move = try_move(map,new_row,new_col,facing);
-            if(did_move){                
-                row = new_row;
-                col = new_col;                
-            }else{
+            curr_node->tile = signs[facing];
+            bool did_move = try_move(curr_node,facing);
+            if(!did_move){                
                 break;
             }
         }
 
         //Mark our steps in the map  
         const std::string signs = ">v<^";
-        map.at(row_col_to_id(new_row,new_col)).tile = signs[facing];
+        curr_node->tile = signs[facing];
 
         //Change facing in place
         facing = Facing(aoc::mod(facing+instruction.first,4));    
@@ -450,7 +451,7 @@ int main(int argc, char *argv[]){
     //Print the final map
     //print_map(map,Nrows,Ncols);    
 
-    std::cout << "Password: " << std::to_string((row+1)*1000 + (col+1)*4 + facing) << std::endl;
+    std::cout << "Password: " << std::to_string((curr_node->row+1)*1000 + (curr_node->col+1)*4 + facing) << std::endl;
 
     return 0;
 }
