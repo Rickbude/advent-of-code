@@ -22,10 +22,7 @@ fn main() -> std::io::Result<()> {
 	let parts = contents.split_whitespace();
 
 	//Part 1
-	let mut key_pt1 : i32 = 0;
-	for part in parts.clone() {
-		key_pt1 += get_subkey(part);
-	}
+	let key_pt1: i32 = parts.clone().map(|p| get_subkey(p)).sum();
 	println!("Key part 1:{}",key_pt1);
 
 	//"Translation table" from string digit to string containing the digit.
