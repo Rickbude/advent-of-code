@@ -5,22 +5,11 @@ use std::collections::HashMap;
 //Get the key from a single line, which is a concatenation of the first and last
 //digit. E.g. a1b2c3d4e5f -> 15
 fn get_subkey(part: &str) -> i32{
-	let mut firstint : i32 = -1;
-	let mut lastint  : i32 = -1;
-	for c in part.chars() {
-		//c is numeric
-		if c >= '0' && c <= '9'
-		{
-			//Store the first digit if we have not encountered it yet
-			if firstint == -1
-			{
-				firstint = (c as u32 - '0' as u32) as i32;
-			}
-			//Always update the last digit
-			lastint = (c as u32 - '0' as u32) as i32;
-		}
-	}
-	return firstint*10 + lastint;
+	let firstvalopt: char = part.chars().find(|&c| c.is_numeric()).unwrap();
+	let firstval: i32 = firstvalopt as i32 - '0' as i32;
+	let lastvalopt: char = part.chars().rev().find(|&c| c.is_numeric()).unwrap();
+	let lastval: i32 = lastvalopt as i32 - '0' as i32;
+	return firstval*10 + lastval;
 }
 
 fn main() -> std::io::Result<()> {
