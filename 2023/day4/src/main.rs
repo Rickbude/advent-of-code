@@ -1,6 +1,23 @@
 use std::fs::File;
 use std::io::prelude::*;
-use regex::Regex;
+use std::collections::HashSet;
+
+//Count the numbers 
+fn count_matches(card: &str) -> u32{
+    //Split card at the pipe: left contains the winning numbers, while right
+    //contains your numbers. Split numbers on whitespace
+    let mut iter = card.split(" | ");
+    let winning_numbers_strings = iter.next().unwrap().split_whitespace();
+    let your_numbers_strings = iter.next().unwrap().split_whitespace();
+
+    //Parse the strings as unsigned numbers, put them in hash sets
+    let parsing_lambda = |num: &str| num.parse::<u32>().unwrap();
+    let winning_numbers: HashSet<u32> = winning_numbers_strings.map(parsing_lambda).collect();
+    let your_numbers: HashSet<u32> = your_numbers_strings.map(parsing_lambda).collect();
+
+    //Intersection between the sets gives the number of matches
+    winning_numbers.intersection(&your_numbers).count() as u32
+}
 
 fn main() -> std::io::Result<()> {
     //Open test file
@@ -13,39 +30,21 @@ fn main() -> std::io::Result<()> {
 
     let mut key_pt1: u32 = 0;
 
-    //Lines look something like:
-    //Card 1: 41 ... 17 | 83 ... 53
-    //Capture card id, numbers left and numbers right of the pipe
-    let re = Regex::new(r"^Card\s+(?<card_id>\d+):(?<winning_numbers>[\s\d]+)\|(?<your_numbers>[\s\d]+)$").unwrap();
-
     let mut scratchcards: Vec<u32> = Vec::new();
     scratchcards.resize(lines.clone().count(),1);
 
-    for line in lines {
-        let Some(caps) = re.captures(line) else{
-            panic!("Invalid input!");
-        };
-
-        //Retrieve named groups from regex
-        let card_id = &caps["card_id"].parse::<usize>().unwrap();
-        let winning_numbers_string = &caps["winning_numbers"].trim();
-        let your_numbers_string = &caps["your_numbers"].trim();
-
-        //Turn string of numbers (split by whitespace) into array of numbers
-        let winning_numbers : Vec<u64> = winning_numbers_string.split_whitespace().map(|c| c.trim().parse::<u64>().unwrap()).collect();
-        let your_numbers    : Vec<u64> = your_numbers_string.split_whitespace().map(|c| c.trim().parse::<u64>().unwrap()).collect();
-
-        //Count number of matching numbers
-        let matches : u32 = your_numbers.iter().map(|c| winning_numbers.contains(c) as u32).sum();
-
+    for (card_id,line) in lines.enumerate() {
+        //Actual information (aside from trivial card id) starts after the colon
+        let card = line.split(":").last().unwrap();
+        let matches = count_matches(card);
         if matches>0 {
             //Add card of score for part 1
             key_pt1 += u32::pow(2,matches-1);
             //For part 2, number of matches = number of copies received
             for i in 0 .. matches as usize{
-                scratchcards[*card_id+i] += scratchcards[*card_id-1];
+                scratchcards[card_id+i+1] += scratchcards[card_id];
             }
-        }        
+        }
     }
     let key_pt2: u32 = scratchcards.iter().sum();
     
