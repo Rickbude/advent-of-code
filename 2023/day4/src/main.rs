@@ -56,5 +56,4 @@ fn main() -> std::io::Result<()> {
     println!("Key part 1: {}", key_pt1);
     println!("Key part 2: {}", key_pt2);
     Ok(())
-
 }
