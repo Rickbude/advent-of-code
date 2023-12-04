@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use regex::Regex;
-
 
 fn main() -> std::io::Result<()> {
     //Open test file
@@ -50,7 +47,7 @@ fn main() -> std::io::Result<()> {
             }
         }        
     }
-    let mut key_pt2: u32 key_pt2 = scratchcards.iter().sum();
+    let key_pt2: u32 = scratchcards.iter().sum();
     
     //Print solution
     println!("Key part 1: {}", key_pt1);
