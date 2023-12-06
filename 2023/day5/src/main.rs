@@ -14,13 +14,13 @@ struct SeedMap {
     mappings: Vec<Mapping>
 }
 
-//Map forward, from source to destination. For a smart part 2, a backward
-//mapping is probably also needed.
+//Forward and backward mapping
 trait DoMap{
-    fn do_map(&self,id: i64) -> i64;
+    fn map_fwd(&self,id: i64) -> i64;
+    fn map_bwd(&self,id: i64) -> i64;
 }
 impl DoMap for SeedMap{
-    fn do_map(&self,id: i64) -> i64{
+    fn map_fwd(&self,id: i64) -> i64{
         for mapping in &self.mappings{
             //Id does not fall in this mapped range
             if id < mapping.start_src || id > mapping.start_src+mapping.range{
@@ -30,6 +30,27 @@ impl DoMap for SeedMap{
         }
         id
     }
+    fn map_bwd(&self,id: i64) -> i64{
+        for mapping in &self.mappings{
+            //Id does not fall in this mapped range
+            if id < mapping.start_dest || id > mapping.start_dest+mapping.range{
+                continue;
+            }
+            return id - mapping.start_dest + mapping.start_src;
+        }
+        id
+    }
+}
+
+fn find_closest_location(seeds: Vec<i64>, maps: &Vec<SeedMap>) -> i64{
+    let mut locations : Vec<i64>  = Vec::new();
+    for mut seed_id in seeds{
+        for map in maps.iter(){
+            seed_id = map.map_fwd(seed_id);
+        }
+        locations.push(seed_id);
+    }
+    *locations.iter().min().unwrap()
 }
 
 fn main() -> std::io::Result<()> {
@@ -45,7 +66,7 @@ fn main() -> std::io::Result<()> {
 
     //Get the input array of seeds
     let seeds_string = blocks.next().unwrap().split(":").last().unwrap();
-    let seeds : Vec<i64> = seeds_string.split_whitespace().map(|num| num.parse::<i64>().unwrap()).collect();
+    let mut seeds : Vec<i64> = seeds_string.split_whitespace().map(|num| num.parse::<i64>().unwrap()).collect();
     let seeds_clone = seeds.clone();
     let seed_ranges: Vec<_>  = seeds_clone.chunks(2).collect();
 
@@ -77,28 +98,38 @@ fn main() -> std::io::Result<()> {
     }
 
     //Find the seed id corresponding to the closest mapped location
-    let mut locations_pt1 : Vec<i64>  = Vec::new();
-    for mut seed_id in seeds{
-        for map in maps.iter(){
-            seed_id = map.do_map(seed_id);
-        }
-        locations_pt1.push(seed_id);
-    }
-    println!("Key part 1: {}", locations_pt1.iter().min().unwrap());
+    println!("Key part 1: {}", find_closest_location(seeds.clone(),&maps));
 
-    //Part 2 can be bruteforced, but it will long (hours, I didn't time it)
-    //This will be replaced with a smart solution later
-    println!("Brute-forcing key for part 2. Strap in, this will take a while..");
-    let mut min_location = i64::MAX;
-    for seed_range in seed_ranges{
-        println!("Processing range: {} - {} (length: {})",seed_range[0],seed_range[0]+seed_range[1],seed_range[1]);
-        for mut seed_id in seed_range[0] .. seed_range[0]+seed_range[1]{
-            for map in maps.iter(){
-                seed_id = map.do_map(seed_id);
-            }
-            min_location = std::cmp::min(min_location,seed_id);
+    //For part 2, make a collection of "range starting points", by backtracking
+    //each range transition towards the seed ids.
+    let mut starting_points : Vec<i64> = Vec::new();
+    starting_points.push(0);
+    for map in maps.iter().rev(){
+        //Collect all the range boundaries for this map
+        for mapping in &map.mappings{
+            starting_points.push(mapping.start_dest);
+            starting_points.push(mapping.start_dest+mapping.range+1);
+        }
+        //Back-map the range boundaries to one layer up
+        for i in 0 .. starting_points.len(){
+            starting_points[i] = map.map_bwd(starting_points[i]);
         }
     }
-    println!("Key part 2: {}",min_location);
+    starting_points.sort();
+
+    //Collect the potentially interesting seed numbers (seed ids at range
+    //boundaries)
+    seeds.clear();
+    for seed_range in seed_ranges{
+        seeds.push(seed_range[0]);
+        for starting_point in &starting_points{
+            if starting_point > &seed_range[0] && *starting_point < &seed_range[0] + &seed_range[1]{
+                seeds.push(*starting_point);
+            }
+        }
+    }
+
+    //Find the seed id corresponding to the closest mapped location
+    println!("Key part 2: {}", find_closest_location(seeds,&maps));
     Ok(())
 }
