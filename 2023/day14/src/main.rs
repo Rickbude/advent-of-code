@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -10,37 +9,9 @@ enum Direction {
     West,
 }
 
-//Print the map, useful when debugging
-fn print_map(
-    rows: usize,
-    cols: usize,
-    moving_rocks: &HashSet<(usize, usize)>,
-    static_rocks: &HashSet<(usize, usize)>,
-) {
-    for row in 0..rows {
-        for col in 0..cols {
-            if moving_rocks.contains(&(row, col)) {
-                print!("O");
-            } else if static_rocks.contains(&(row, col)) {
-                print!("#");
-            } else {
-                print!(".");
-            }
-        }
-        print!("\n")
-    }
-    println!();
-}
-
 // col bins: start/end rows of empty space, per column
 // row bins: start/end cols of empty space, per row
-fn tilt_platform(
-    direction: Direction,
-    rows: usize,
-    cols: usize,
-    moving_rocks: &mut HashSet<(usize, usize)>,
-    static_rocks: &HashSet<(usize, usize)>,
-) {
+fn tilt_platform(direction: Direction, rows: usize, cols: usize, map: &mut Vec<char>) {
     //Outer loop runs over columns or rows, depending on direction
     let inner_range: Vec<usize> = match direction {
         Direction::North => (0..rows).into_iter().collect(),
@@ -48,6 +19,7 @@ fn tilt_platform(
         Direction::East => (0..cols).into_iter().rev().collect(),
         Direction::West => (0..cols).into_iter().collect(),
     };
+
     //Inner loop runs over columns or rows, depending on direction
     let outer_range = match direction {
         Direction::North | Direction::South => (0..cols).into_iter(),
@@ -55,45 +27,54 @@ fn tilt_platform(
     };
 
     //Update rock positions
-    let mut new_moving_rocks: HashSet<(usize, usize)> = HashSet::new();
+    let mut new_map = map.clone();
     for outer in outer_range {
+        //Insertion position for moving rocks
         let mut place_rock_at = 0;
-        for (index, inner) in inner_range.iter().enumerate() {
+        for (inner_index, inner) in inner_range.iter().enumerate() {
+            //Get linear index into the map. Depending on whether we iterate
+            //N<->S or E<->W, the inner loop may be rows/cols
             let (row, col) = match direction {
                 Direction::North | Direction::South => (*inner, outer),
                 Direction::West | Direction::East => (outer, *inner),
             };
-            let rock = (row, col);
-            //Found a moving rock. Move the rock and update the position of the
-            //last encountered rock
-            if moving_rocks.contains(&rock) {
-                let new_rock = match direction {
-                    Direction::North | Direction::South => (inner_range[place_rock_at], col),
-                    Direction::East | Direction::West => (row, inner_range[place_rock_at]),
-                };
-                new_moving_rocks.insert(new_rock);
-                place_rock_at += 1;
-            }
-            //We found a new static rock
-            if static_rocks.contains(&rock) {
-                place_rock_at = index + 1;
-            }
+            let linear_index = row * cols + col;
+
+            match map[linear_index] {
+                'O' => {
+                    //Found a moving rock. Move the rock in the map copy, and
+                    //update the position of the last encountered rock
+                    let new_linear_index = match direction {
+                        Direction::North | Direction::South => {
+                            inner_range[place_rock_at] * cols + col
+                        }
+                        Direction::East | Direction::West => {
+                            row * cols + inner_range[place_rock_at]
+                        }
+                    };
+                    new_map[linear_index] = '.';
+                    new_map[new_linear_index] = 'O';
+                    place_rock_at += 1;
+                }
+                '#' => {
+                    //Found a new static rock. Update the insertion position
+                    place_rock_at = inner_index + 1;
+                }
+                _ => {
+                    continue;
+                }
+            };
         }
     }
-    *moving_rocks = new_moving_rocks;
+    *map = new_map;
 }
 
 //Perform a full counterclockwise cycle of the platform
-fn do_cycle(
-    rows: usize,
-    cols: usize,
-    moving_rocks: &mut HashSet<(usize, usize)>,
-    static_rocks: &HashSet<(usize, usize)>,
-) {
-    tilt_platform(Direction::North, rows, cols, moving_rocks, static_rocks);
-    tilt_platform(Direction::West, rows, cols, moving_rocks, static_rocks);
-    tilt_platform(Direction::South, rows, cols, moving_rocks, static_rocks);
-    tilt_platform(Direction::East, rows, cols, moving_rocks, static_rocks);
+fn do_cycle(rows: usize, cols: usize, map: &mut Vec<char>) {
+    tilt_platform(Direction::North, rows, cols, map);
+    tilt_platform(Direction::West, rows, cols, map);
+    tilt_platform(Direction::South, rows, cols, map);
+    tilt_platform(Direction::East, rows, cols, map);
 }
 
 //Calculate the answer to part 1 / 2
@@ -103,61 +84,46 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
-    //Collect the starting positions of the rocks (moving and static)
-    let mut moving_rocks: HashSet<(usize, usize)> = HashSet::new();
-    let mut static_rocks: HashSet<(usize, usize)> = HashSet::new();
-
     let rows = contents.lines().into_iter().count();
     let cols = contents.lines().next()?.len();
-    for (row, line) in contents.lines().enumerate() {
-        for (col, c) in line.chars().enumerate() {
-            if c == '#' {
-                static_rocks.insert((row, col));
-            } else if c == 'O' {
-                moving_rocks.insert((row, col));
-            }
-        }
-    }
+    let mut map: Vec<char> = contents.replace("\n", "").chars().collect();
 
     if part == 1 {
         //For part 1, all we need to do is tilt the platform to the north
-        tilt_platform(
-            Direction::North,
-            rows,
-            cols,
-            &mut moving_rocks,
-            &static_rocks,
-        );
+        tilt_platform(Direction::North, rows, cols, &mut map);
     } else {
-        let mut states: HashMap<Vec<(usize, usize)>, usize> = HashMap::new();
-        let mut cycle = 1;
-        loop {
-            println!("{}", cycle);
-            do_cycle(rows, cols, &mut moving_rocks, &static_rocks);
-            let mut rocks: Vec<(usize, usize)> = moving_rocks.iter().map(|x| *x).collect();
-            rocks.sort();
-            if states.contains_key(&rocks) {
-                println!("Repetition found after {} cycles!!", cycle);
-                println!(
-                    "This state was earlier encountered at cycle {}",
-                    states.get(&rocks)?
-                );
-                let diff = cycle - states.get(&rocks)?;
-                let remaining = (1000000000 as i64 - cycle as i64) as usize;
-                cycle += (remaining / diff) * diff
-            } else {
-                states.insert(rocks, cycle);
-            }
-            let key: usize = moving_rocks.iter().map(|x| rows - x.0).sum();
-            println!("key:{}", key);
-            if cycle == 1000000000 {
+        //For part 2, the platform is rotated periodically. Keep track over
+        //which states (maps including moving rocks) we have seen. Note that we
+        //are hashing way too much, we would only have to hash the positions of
+        //the moving rocks.
+        let mut states: HashMap<Vec<char>, usize> = HashMap::new();
+        let number_of_cycles = 1000000000;
+        for cycle in 1..number_of_cycles {
+            //Update the map
+            do_cycle(rows, cols, &mut map);
+            if states.contains_key(&map) {
+                //We encountered this state before. Lookup the projected final state
+                let prev_cycle = *states.get(&map)?;
+                let cycle_length = cycle - prev_cycle;
+                let remaining_cycles = (number_of_cycles as i64 - cycle as i64) as usize;
+                let final_cycle = remaining_cycles % cycle_length + prev_cycle;
+                map = states
+                    .iter()
+                    .find_map(|(key, &val)| if val == final_cycle { Some(key) } else { None })?
+                    .to_vec();
                 break;
+            } else {
+                //We have not seen this state before, add it to the list.
+                states.insert(map.clone(), cycle);
             }
-            cycle += 1;
         }
     }
-    let key: usize = moving_rocks.iter().map(|x| rows - x.0).sum();
-
+    //Extract answer (inverted row positions) from the map
+    let key: usize = map
+        .iter()
+        .enumerate()
+        .map(|(index, c)| if c == &'O' { rows - (index / cols) } else { 0 })
+        .sum();
     Some(key)
 }
 
