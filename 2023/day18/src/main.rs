@@ -78,7 +78,7 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
     //Use the "Shoelace method" to calculate the polygon area defined by the set
     //of corner points: https://en.wikipedia.org/wiki/Shoelace_formula:
     //              | x1 x2 |   | x2 x2 |
-    //    A = 1/2 * | y1 y2 | + | y2 y3 |
+    //    A = 1/2 * | y1 y2 | + | y2 y3 | + ...
     //Note that this assumes a line of 0 width
     let inner_area = corners
         .windows(2)
