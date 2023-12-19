@@ -35,6 +35,23 @@ type Pos = (i64, i64);
 //Instruction (# of steps in which direction)
 type Instruction = (Direction, i64);
 
+//In part 1, read only direction and steps, ignore color code
+fn process_line_pt1(line: &str) -> Option<Instruction> {
+    let parts: Vec<&str> = line.trim().split_whitespace().collect();
+    let direction = map_direction(parts[0])?;
+    let steps = parts[1].parse::<i64>().ok()?;
+    Some((direction, steps))
+}
+
+//In part two: the sixth digit of the color code encodes
+//direction, and the first five hex digits the number of steps.
+fn process_line_pt2(line: &str) -> Option<Instruction> {
+    let color_code = line.trim().split_whitespace().last()?;
+    let steps = i64::from_str_radix(&color_code[2..7], 16).ok()?;
+    let direction = map_direction(&color_code[7..8])?;
+    Some((direction, steps))
+}
+
 //Calculate the answer to part 1 / 2
 fn calculate_key(part: usize, filename: &str) -> Option<usize> {
     //Open input file
@@ -42,38 +59,27 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
+    //Select function for processing line -> instruction
+    let line_processor = if part == 1 {
+        process_line_pt1
+    } else {
+        process_line_pt2
+    };
+
     //Parse input file into vector of instructions
-    let instructions: Vec<Instruction> = contents
-        .lines()
-        .map(|line| {
-            let parts: Vec<&str> = line.trim().split_whitespace().collect();
-            if part == 1 {
-                //In part 1, read direction and steps "normally"
-                let direction = map_direction(parts[0]).unwrap();
-                let steps = parts[1].parse::<i64>().unwrap();
-                (direction, steps)
-            } else {
-                //In part two: the sixth digit of the color code encodes
-                //direction, and the first five hex digits the number of steps.
-                let color_code = parts[2].to_string();
-                let steps = i64::from_str_radix(&color_code[2..7], 16).unwrap();
-                let direction = map_direction(&color_code[7..8]).unwrap();
-                (direction, steps)
-            }
-        })
-        .collect();
+    let instructions: Vec<Instruction> = contents.lines().filter_map(line_processor).collect();
 
     //Get the corner points of the map, and the total length of the path
     let mut pos: Pos = (0, 0);
     let mut corners: Vec<Pos> = Vec::new();
     let mut path_len = 0;
-    instructions.iter().for_each(|(direction, steps)| {
-        let delta = get_delta(*direction);
+    for (direction, steps) in instructions {
+        let delta = get_delta(direction);
         corners.push(pos);
         pos.0 += delta.0 * steps;
         pos.1 += delta.1 * steps;
         path_len += steps;
-    });
+    }
 
     //Use the "Shoelace method" to calculate the polygon area defined by the set
     //of corner points: https://en.wikipedia.org/wiki/Shoelace_formula:
