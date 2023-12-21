@@ -1,5 +1,3 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -95,6 +93,54 @@ fn line_to_workflow(line: &str) -> Option<Workflow> {
     })
 }
 
+//Accept a workflow. Part 1 is handled differently from part 2
+fn accept_workflow(range: &(Part, Part), part: usize) -> Option<usize> {
+    let mut result = 1;
+    if part == 1 {
+        //For part 1 the sum of the xmas properties matters
+        result = range.0.values().sum();
+    } else {
+        //For part 2 the mapped range matters;
+        for cat in "xmas".chars() {
+            let diff = *range.1.get(&cat)? as i64 - *range.0.get(&cat)? as i64;
+            result *= (diff.abs() + 1) as usize;
+        }
+    }
+    return Some(result);
+}
+
+//Split the range at the desired value and return the lower part (cat <= value)
+fn get_lower(range: &(Part, Part), category: &char, value: &usize) -> Option<(Part, Part)> {
+    //Range already starts higher than the threshold value -> no lower part
+    if range.0.get(category)? > value {
+        return None;
+    }
+    //Entire range is lower than the threshold -> no splitting needed
+    if range.1.get(category)? <= value {        
+        return Some(range.clone());
+    }
+    //Perform the split in all other cases
+    let mut split_part = range.1.clone();
+    split_part.entry(*category).and_modify(|v| *v = *value);
+    Some((range.0.clone(), split_part))
+}
+
+//Split the range at the desired value and return the upper part (cat > value)
+fn get_upper(range: &(Part, Part), category: &char, value: &usize) -> Option<(Part, Part)> {
+    //Range already ends lower than the threshold value -> no upper part
+    if range.1.get(category)? <= value {    
+        return None;
+    }
+    //Entire range is larger than the threshold -> no splitting needed
+    if range.0.get(category)? > value {
+        return Some(range.clone());
+    }
+    //Perform the split in all other cases
+    let mut split_part = range.0.clone();
+    split_part.entry(*category).and_modify(|v| *v = *value + 1);
+    Some((split_part, range.1.clone()))
+}
+
 fn run_workflow(
     workflow: String,
     range: &(Part, Part),
@@ -108,16 +154,7 @@ fn run_workflow(
 
     //Workflow was accepted
     if workflow == "A" {
-        let mut result = 1;
-        if part == 1 {
-            result = range.0.values().sum();
-        } else {
-            for cat in "xmas".chars() {
-                result *=
-                    ((*range.1.get(&cat)? as i64 - *range.0.get(&cat)? as i64).abs() + 1) as usize;
-            }
-        }
-        return Some(result);
+        return accept_workflow(range, part);
     }
 
     let mut score: usize = 0;
@@ -134,60 +171,33 @@ fn run_workflow(
                 value,
                 target,
             } => {
-                //Entire range passes
-                if current_range.0.get(category)? > &value {
-                    score += run_workflow(target.clone(), &current_range, workflows, part)?;
+                if let Some(upper) = get_upper(&current_range, category, value) {
+                    score += run_workflow(target.clone(), &upper, workflows, part)?;
+                }
+                if let Some(lower) = get_lower(&current_range, category, value) {
+                    current_range = lower;
+                } else {
+                    //Entire range passed -> stop processing this workflow
                     break;
                 }
-                //Entire range fails
-                if current_range.1.get(category)? <= &value {
-                    continue;
-                }
-
-                //Range needs to be split in two
-                let mut split_part_1 = current_range.1.clone();
-                let mut split_part_2 = current_range.0.clone();
-                split_part_1.entry(*category).and_modify(|v| *v = *value);
-                split_part_2
-                    .entry(*category)
-                    .and_modify(|v| *v = *value + 1);
-
-                let new_range: (Part, Part) = (split_part_2, current_range.1.clone());
-                current_range.1 = split_part_1;
-                score += run_workflow(target.clone(), &new_range, workflows, part)?;
-                continue;
             }
             Rule::Less {
                 category,
                 value,
                 target,
             } => {
-                //Entire range passes
-                if current_range.1.get(category)? < &value {
-                    score += run_workflow(target.clone(), &current_range, workflows, part)?;
+                if let Some(lower) = get_lower(&current_range, category, &(*value - 1)) {
+                    score += run_workflow(target.clone(), &lower, workflows, part)?;
+                }
+                if let Some(upper) = get_upper(&current_range, category, &(*value - 1)) {
+                    current_range = upper;
+                } else {
+                    //Entire range passed -> stop processing this workflow
                     break;
                 }
-                //Entire range fails
-                if current_range.0.get(category)? >= &value {
-                    continue;
-                }
-
-                //Range needs to be split in two
-                let mut split_part_1 = current_range.1.clone();
-                let mut split_part_2 = current_range.0.clone();
-                split_part_1
-                    .entry(*category)
-                    .and_modify(|v| *v = *value - 1);
-                split_part_2.entry(*category).and_modify(|v| *v = *value);
-
-                let new_range: (Part, Part) = (current_range.0.clone(), split_part_1);
-                current_range.0 = split_part_2;
-                score += run_workflow(target.clone(), &new_range, workflows, part)?;
-                continue;
             }
         }
     }
-
     Some(score)
 }
 
