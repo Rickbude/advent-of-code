@@ -6,14 +6,15 @@ use std::io::prelude::*;
 enum ModuleType {
     Broadcast,
     Button,
-    FlipFlop { state: bool },
-    Conjunction { inputs: HashMap<String, bool> },
+    FlipFlop,
+    Conjunction,
 }
 
 #[derive(Debug, Clone)]
 struct Module {
     module_type: ModuleType,
     outputs: Vec<String>,
+    inputs: HashMap<String, bool>,
 }
 
 //Calculate the answer to part 1 / 2
@@ -23,7 +24,7 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
-    //Parse the input. Memory modules are still uninitialized
+    //Parse the input. Inputs connections to the modules are still uninitialized
     let mut tmp_modules: HashMap<String, Module> = HashMap::new();
     for line in contents.lines() {
         let mut parts = line.split(" -> ");
@@ -37,12 +38,10 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
         let mut module_type: ModuleType = ModuleType::Button;
         if name.chars().nth(0)? == '&' {
             name = name.strip_prefix('&')?;
-            module_type = ModuleType::Conjunction {
-                inputs: HashMap::new(),
-            };
+            module_type = ModuleType::Conjunction;
         } else if name.chars().nth(0)? == '%' {
             name = name.strip_prefix('%')?;
-            module_type = ModuleType::FlipFlop { state: false };
+            module_type = ModuleType::FlipFlop;
         } else if name == "broadcaster" {
             module_type = ModuleType::Broadcast;
         }
@@ -52,22 +51,21 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
             Module {
                 module_type: module_type,
                 outputs: outputs,
+                inputs: HashMap::new(),
             },
         );
     }
 
     let mut modules = tmp_modules.clone();
-    //Set up input connections for conjunction modules
+    //Set up input connections between the modules
     for (target_name, target_module) in &mut modules {
-        if let ModuleType::Conjunction { inputs } = &mut target_module.module_type {
-            *inputs = HashMap::from_iter(tmp_modules.iter().filter_map(|(k, v)| {
-                if v.outputs.contains(&target_name) {
-                    Some((k.clone(), false))
-                } else {
-                    None
-                }
-            }));
-        }
+        target_module.inputs = HashMap::from_iter(tmp_modules.iter().filter_map(|(k, v)| {
+            if v.outputs.contains(&target_name) {
+                Some((k.clone(), false))
+            } else {
+                None
+            }
+        }));
     }
 
     //For part 2, the solution is a bit ugly. Analysis of the input file reveals
@@ -86,15 +84,14 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
         .find(|x| x.1.outputs.contains(&"rx".to_string()));
     let mut rx_exit_cycles: HashMap<String, usize> = HashMap::new();
     if rx_exit_module.is_some() {
-        if let ModuleType::Conjunction { inputs } = &rx_exit_module?.1.module_type {
-            rx_exit_cycles = inputs.keys().clone().map(|v| (v.clone(), 0)).collect();
-        }
+        let inputs = rx_exit_module?.1.inputs.clone();
+        rx_exit_cycles = HashMap::from_iter(inputs.keys().map(|v| (v.clone(), 0)));
     }
 
     let mut low_pulses_sent = 0;
     let mut high_pulses_sent = 0;
 
-    let num_iterations = if part == 1 { 1000 } else { 10000 };
+    let num_iterations = if part == 1 { 1000 } else { 100000 };
     for iteration in 0..num_iterations {
         let mut active_signals: VecDeque<(String, String, bool)> = VecDeque::new();
         active_signals.push_back(("button".to_string(), "broadcaster".to_string(), false));
@@ -114,24 +111,29 @@ fn calculate_key(part: usize, filename: &str) -> Option<usize> {
 
             //Process the input signal, determine output signal
             let output_signal = match &mut module.module_type {
-                ModuleType::FlipFlop { state } => {
+                ModuleType::FlipFlop => {
+                    //Flipflop module:
+                    // - if a high pulse is received, nothing happens.
+                    // - if a low pulse is received, state toggles and new state is returned
                     if strength {
                         None
                     } else {
+                        let state = module.inputs.get_mut(&signal_from.clone())?;
                         *state = !*state;
                         Some(*state)
                     }
                 }
                 ModuleType::Broadcast => Some(strength),
-                ModuleType::Conjunction { inputs } => {
-                    inputs.insert(signal_from.clone(), strength);
-                    Some(!inputs.values().all(|v| *v == true))
+                ModuleType::Conjunction => {
+                    //Conjunction module: update input values, and perform essentially a NAND
+                    module.inputs.insert(signal_from.clone(), strength);
+                    Some(!module.inputs.values().all(|v| *v == true))
                 }
                 _ => None,
             };
             if output_signal.is_some() {
                 for output in &module.outputs {
-                    //Add new pulses to the que
+                    //Add new pulses to the queue
                     active_signals.push_back((signal_to.clone(), output.clone(), output_signal?));
 
                     //See if the inputs to hf has turned on, store the current iteration index
