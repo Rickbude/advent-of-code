@@ -36,7 +36,7 @@ fn calculate_key(part: usize, filename: &str) -> io::Result<usize> {
 
         //Use built-in is_sorted_by and sort_by functions, which is an
         //improvement over the previous self-built bubble sort. Found this trick
-        //in the solution megathread (SuperSmurfen)
+        //in the solution megathread (Thanks SuperSmurfen!)
         if pages.is_sorted_by(|a, b| !rules.contains_key(b) || !rules[b].contains(a)) {
             if part == 1 {
                 key += &pages[pages.len() / 2];
